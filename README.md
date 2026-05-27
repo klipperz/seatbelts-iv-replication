@@ -113,9 +113,8 @@ estar correlacionados con otras variables que afectan las fatalidades directamen
 
 # Fuente de los datos
 
-- Cohen, A. & Einav, L. (2003). Dataset de panel estatal EE.UU. 1983–1997. Disponible en el paquete `AER` de R.
+- Cohen, A. & Einav, L. (2003). Dataset de panel estatal EE.UU. 1983–1997.
 
 # Referencias
 
 - Cohen, A., & Einav, L. (2003). The effects of mandatory seat belt laws on driving behavior and traffic fatalities. *Review of Economics and Statistics*, 85(4), 828–843.
-- Angrist, J. & Pischke, J.S. (2009). *Mostly Harmless Econometrics*. Princeton University Press.
