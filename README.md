@@ -12,9 +12,9 @@ en Estados Unidos mediante un modelo de variables instrumentales.
 
 El documento completo con código, resultados, gráficos e interpretaciones está disponible acá:
 
-[Ver análisis](https://htmlpreview.github.io/?https://github.com/klipperz/seatbelts-iv-replication/blob/main/quizz_3.html)
+[Ver análisis](https://htmlpreview.github.io/?https://github.com/klipperz/seatbelts-iv-replication/blob/main/quizz-3.html)
 
-El código fuente en R Markdown está en `quizz_3.Rmd`.
+El código fuente en R Markdown está en `quizz 3.Rmd`.
 
 ---
 
