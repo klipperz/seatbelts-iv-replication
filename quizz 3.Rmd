@@ -1,0 +1,188 @@
+---
+title: "Quiz 3"
+author: "Samuel Angel y Laura Ortiz"
+date: "2025-10-15"
+output:
+  html_document:
+    df_print: paged
+---
+Punto 1
+El estudio de Cohen y Einav (2003) busca medir el efecto de las leyes obligatorias de cinturón de seguridad sobre las fatalidades en accidentes de tránsito en Estados Unidos. Su aporte clave es separar dos efectos: primero, cuánto aumentan estas leyes el uso del cinturón; y segundo, cuánto reduce ese uso las fatalidades. Utilizan un panel de datos de los 51 estados entre 1983 y 1997, con información sobre tasas de uso del cinturón, fatalidades (separando ocupantes de no ocupantes) y controles demográficos, económicos y de tráfico. 
+El modelo estimado con variables instrumentales es:
+log(fatalityrate)=β_0+β_1 log(sb_useage )_it+β_2 speed65_it+β_3 speed70_it+β_4 drinkage21_it+β_5 ba08_it+β_6 log(income)_it+β_7 age_it+β_8 log(vmtrural)_it+β_9 log(vmturban)_it+δ_it+ϵ
+El problema de endogeneidad surge porque la decisión de usar el cinturón no es aleatoria: factores no observados que aumentan las fatalidades (como mal clima o infraestructura deficiente) también incentivan mayor uso del cinturón, generando correlación positiva entre uso y el error. Esto sesga al alza el coeficiente en estimaciones por mínimos cuadrados ordinarios. Para resolverlo, instrumentan el uso con variables ficticias que indican la existencia y tipo de ley (aplicación secundaria o primaria). Estos instrumentos son relevantes porque las leyes aumentan significativamente el uso del cinturon, y son exógenos porque, el momento de adopción de la ley responde a procesos políticos internos. Los resultados muestran que el uso del cinturón reduce las fatalidades de ocupantes, ya que un aumento de 1 punto porcentual en el uso salva 136 vidas anuales y además las leyes de aplicación primaria son mucho más efectivas (aumentan el uso en 22 puntos) que las de aplicación secundaria (11 puntos).
+PUNTO 2 
+```{r}
+library(haven)
+library(tidyverse)
+library(stargazer)
+library(modelsummary)
+library(AER)
+library(gt)
+```
+Cargamos librerias 
+
+```{r}
+datos <- read_dta("SeatBelts.dta")
+datos <- datos %>% drop_na()
+```
+Comenzamos eliminando los NAs, en el paper señalan que su panel de datos no está completo, especialmente para la variable de uso del cinturón, cuyos datos son escasos en los primeros años. Al eliminar estas observaciones incompletas, la base de datos se reduce de un total teórico de 765 observaciones (51 jurisdicciones x 15 años) a las 556 observaciones que se utilizan para el análisis principal. 
+
+Luego de esto procedemos a hacer las estadisticas descriptivas:
+
+```{r}
+datasummary(fatalityrate + sb_useage + speed65 + speed70 + 
+              drinkage21 + ba08 + income + age + vmtrural + 
+              vmturban + vmt + primary + secondary ~ 
+              Mean + SD + Min + P25 + Median + P75 + Max + N,
+            data = datos,
+            output = "default")
+```
+De esta tabla observamos lo siguiente: fatalityrate tiene una media de 0.02 con una desviación estándar de 0.01, variando entre 0.01 y 0.04, lo que indica variación moderada entre estados. sb_useage muestra que en promedio el 53% de las personas usaba cinturón, pero el rango es amplio (mín: 6%, máx: 87%), reflejando gran heterogeneidad entre estados y a lo largo del tiempo.
+Respecto a las variables instrumentales, el 15% de las observaciones corresponde a estados-año con leyes de aplicación primaria y el 64% a aplicación secundaria, quedando aproximadamente 21% de observaciones sin ley obligatoria de cinturón, lo que proporciona variación suficiente para la identificación.
+Los controles muestran características diversas: la mayoría de estados ya tenía edad mínima de 21 años para beber (96%), mientras que pocos habían adoptado el límite de 0.08 de concentración de alcohol en sangre (13%). En cuanto a límites de velocidad, el 79% de las observaciones corresponde a límites de 65 mph y solo el 10% a 70 mph o más. Las variables económicas y de tráfico también muestran variación considerable: el ingreso mediano promedio es de $19,572 con un rango entre $9,696 y $35,863, y las millas totales recorridas (vmt) varían enormemente entre estados, desde 3,316 hasta 285,612, reflejando diferencias en tamaño poblacional y geográfico.
+
+Luego hacemos la correlacion con su respectivo P value
+```{r}
+años<- c(min(datos$year), 
+                 round(mean(range(datos$year))), 
+                 max(datos$year))
+años
+
+datos %>%
+  filter(year %in% años) %>%
+  group_by(year) %>%
+  summarise(
+    correlacion = cor(fatalityrate, sb_useage),
+    p_valor = cor.test(fatalityrate, sb_useage)$p.value)
+```
+Estos resultados son fundamentales y revelan el problema central del estudio ya que en 1983, la correlación es muy fuerte (-0.976), pero el p-valor (0.1412) indica que no es estadísticamente significativa, probablemente debido a los pocos datos disponibles ese año (como vimos en el paso 1).
+
+Para 1990 y 1997, cuando los datos son más completos, la correlación es extremadamente débil y estadísticamente no significativa, lo cual bajo un análisis simple sugeriría que no hay relación entre usar más el cinturón y que haya menos muertes, sin embargo es debatible y es el foco central del paper.
+
+Y por ultimo hacemos las graficas de los años, las cuales nos permiten visualizar la correlación calculada en el paso anterior, ajustando una línea de regresión lineal simple a los datos de cada año.
+```{r}
+# 1983
+datos %>%
+  filter(year == años[1]) %>%
+  ggplot(aes(x = sb_useage, y = fatalityrate)) +
+  geom_point(alpha = 0.6, color = "steelblue", size = 2.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "red", fill = "pink", alpha = 0.2) +
+  labs(
+    title = paste("relacion uso cinturon y mortalidad -", años[1]),
+    x = "uso del cinturon de seguridad (%)",
+    y = "tasa de mortalidad"
+  ) +
+  theme_minimal()
+
+# 1990
+datos %>%
+  filter(year == años[2]) %>%
+  ggplot(aes(x = sb_useage, y = fatalityrate)) +
+  geom_point(alpha = 0.6, color = "steelblue", size = 2.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "red", fill = "pink", alpha = 0.2) +
+  labs(
+    title = paste("relacion uso cinturon y mortalidad -", años[2]),
+    x = "uso del cinturon de seguridad (%)",
+    y = "tasa de mortalidad"
+  ) +
+  theme_minimal()
+
+# 1997
+datos %>%
+  filter(year == años[3]) %>%
+  ggplot(aes(x = sb_useage, y = fatalityrate)) +
+  geom_point(alpha = 0.6, color = "steelblue", size = 2.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "red", fill = "pink", alpha = 0.2) +
+  labs(
+    title = paste("relacion uso cinturon y mortalidad -", años[3]),
+    x = "uso del cinturon de seguridad (%)",
+    y = "tasa de mortalidad"
+  ) +
+  theme_minimal()
+
+```
+El gráfico de 1983 muestra muy pocos puntos, confirmando la falta de datos que llevó a la limpieza con drop_na().
+
+Los gráficos de 1990 y 1997 muestran una nube de puntos dispersa con una línea de regresión casi plana.
+Si el cinturón salvara vidas (como lo hace), esperaríamos una línea con pendiente negativa fuerte y significativa. Lo que vemos es el resultado de un sesgo por variables omitidas ya que factores no observados (como la percepción del riesgo, la calidad de las carreteras, o una cultura de conducción más prudente) afectan tanto a la decisión de usar el cinturón como a la tasa de fatalidad.
+
+Por ejemplo, un estado con conductores inherentemente más riesgosos tendrá más muertes y, simultáneamente, menor uso del cinturón y es justamente esto lo que introduce una correlación espuria que oculta el verdadero efecto protector del cinturon y como se señala en el paper, un MCO simple que ignora este problema puede incluso llegar a mostrar un coeficiente positivo, sugiriendo erróneamente que los cinturones aumentan las muertes.
+
+Por lo tanto, este análisis visual demuestra por qué es incorrecto usar una correlación simple o un MCO básico, es por esto que se usan las variables instrumentales mediante MC2E, que es exactamente lo que los autores hacen para aislar el verdadero efecto causal.
+
+Punto 3
+Luego de haber hecho estas estadisticas descriptivas, analisis de correlacion y esto para los años, continuamos a estimar nuestro modelo por MCO, y luego procederemos analizar el modelo en cuestión y explicar el por que esta especificación para el modelo no es del todo la correcta. Este modelo estimado busca explicar la tasa de fatalidad en función del uso del cinturón de seguridad y un conjunto de variables de control. La especificación utiliza el logaritmo para la variable dependiente (log(fatalityrate)) y para varias variables explicativas (log(sb_useage), log(income), log(vmtrural), log(vmturban)).Esta especificación logarítmica es metodológicamente adecuada y coincide con la empleada en el estudio de referencia, este uso de logaritmos permite que los coeficientes sean interpretados como elasticidades o semi-elasticidades, lo captura cambios porcentuales, que suelen ser más interpretables que los cambios en unidades absolutas, ademas también se incluyó la edad y su término cuadrático (I(age^2)) para capturar una posible relación no lineal entre la edad promedio y las fatalidades.
+Para este caso tenemos el siguiente modelo: 
+log(fatalityrate)=β_0+β_1 log(sb_useage)+β_2 speed65+β_3 speed70+β_4 drinkage21+β_5 ba08+β_6 log(income)+β_7 age+β_8 age^2+β_9 log(vmtrural)+β_10 log(vmturban)+ϵ
+
+```{r}
+MCO<- lm(log(fatalityrate) ~ log(sb_useage) + speed65 + speed70 + 
+                      drinkage21 + ba08 + log(income) + age + I(age^2) + 
+                      log(vmtrural) + log(vmturban)+factor(state), 
+                    data = datos)
+
+summary(MCO)
+```
+El R cuadrado ajustado indica que este modelo explica aproximadamente el 88.9% de la variabilidad en el logaritmo de la tasa de fatalidad, una mejora sustancial respecto al modelo sin efectos fijos. La interpretación económica de los coeficientes estadísticamente significativos es la siguiente:
+log(sb_useage): El coeficiente es negativo (-0.036) y marginalmente significativo al 10%, lo cual sugiere que un aumento del 1% en la tasa de uso del cinturón de seguridad está asociado con una disminución del 0.036% en la tasa de fatalidad. Este resultado es consistente con la intuición física de que el cinturón protege vidas.
+speed65: El coeficiente es negativo pero estadísticamente no significativo, con lo cual no podemos concluir que exista una diferencia real en fatalidades entre los estados con límite de 65 mph y el grupo base.
+speed70: Estados con límites de velocidad de 70 mph o más están asociados con tasas de fatalidad 10.7% más altas, un resultado altamente significativo y consistente con la física de los accidentes de tránsito.
+drinkage21: Contrario a lo esperado, el coeficiente es positivo y significativo, sugiriendo que estados con edad legal para beber en 21 años tienen tasas de fatalidad 6.2% más altas. Este resultado puede reflejar causalidad inversa, donde estados con mayores problemas de seguridad vial adoptan estas leyes.
+ba08: La implementación de leyes de alcohol en sangre más estrictas se asocia con una disminución en la tasa de fatalidad de 5.1%, un efecto significativo al 1%.
+log(income): Un aumento del 1% en el ingreso per cápita del estado se asocia con una disminución de 0.68% en la tasa de fatalidad. Esto podría reflejar que estados más ricos tienen mejores infraestructuras viales, vehículos más seguros y sistemas de emergencia más eficientes.
+age y I(age^2): Aunque los coeficientes no son estadísticamente significativos, sugieren una relación no lineal donde la tasa de fatalidad disminuye con la edad promedio hasta cierto punto, para luego aumentar.
+log(vmtrural): Un aumento del 1% en las millas viajadas en zonas rurales se asocia con un aumento del 0.20% en la tasa de fatalidad, reflejando que las carreteras rurales son más peligrosas.
+log(vmturban): Un aumento del 1% en las millas viajadas en zonas urbanas se asocia con una disminución del 0.43% en la tasa de fatalidad, posiblemente porque en zonas urbanas las velocidades son menores.
+A pesar de que el modelo con efectos fijos corrige el signo del coeficiente de sb_useage y mejora sustancialmente el ajuste, la regresión por MCO sigue siendo inapropiada para estimar el efecto causal del uso del cinturón de seguridad sobre las víctimas mortales debido a la endogeneidad. El problema fundamental es que el uso del cinturón no es aleatorio: está correlacionado con características no observables que también afectan las fatalidades. Por ejemplo, estados o períodos con campañas intensivas de seguridad vial podrían experimentar simultáneamente mayor uso del cinturón y menor fatalidad por otros canales, generando un sesgo que sobreestima el efecto protector. Inversamente, si conductores aumentan el uso del cinturón en respuesta a condiciones de tránsito más peligrosas, esto genera causalidad inversa que atenúa el verdadero efecto protector. Incluso con efectos fijos de estado, quedan variables omitidas que varían en el tiempo y afectan tanto el uso del cinturón como las fatalidades, como campañas de concientización, mejoras en la calidad de los vehículos o cambios en la cultura de seguridad vial. Adicionalmente, la inclusión de 51 efectos fijos de estado consume 50 grados de libertad, lo que puede afectar la precisión de las estimaciones y la potencia de los tests estadísticos, particularmente problemático considerando que el coeficiente de sb_useage es apenas marginalmente significativo.
+En vista de esto, para aislar el verdadero efecto causal del cinturón de seguridad, procedemos a estimar el modelo por MC2E utilizando variables instrumentales que afecten el uso del cinturón pero no estén directamente correlacionadas con las fatalidades.
+
+# Punto 4
+
+Para abordar la endogeneidad identificada en el modelo de MCO, se procedió a estimar un modelo de MC2E. En esta estimación, se utiliza la misma especificación del modelo anterior, pero se instrumenta la variable endógena log(sb_useage) utilizando como instrumentos las variables que indican la presencia de leyes de cinturón de seguridad, las cuales son primary y secondary. Estas variables se consideran instrumentos adecuados conceptualmente, ya que los instrumentos afectan directamente la tasa de uso del cinturón, pero no deberían afectar directamente la tasa de fatalidad más que a través de su efecto sobre el uso del cinturón, debido a que si afectara a nuestra variable dependiente, deberian ser añadidas como una variable de control mas.
+```{r}
+MCO2E<- ivreg(log(fatalityrate) ~ log(sb_useage) + speed65 + speed70 + drinkage21 + ba08 + log(income) + age + I(age^2) + log(vmtrural) + log(vmturban) + factor(state)| speed65 + speed70 + drinkage21 + ba08 + log(income) + age + I(age^2) + log(vmtrural) + log(vmturban) + primary + secondary + factor(state), data = datos)
+
+summary(MCO2E, diagnostics = TRUE)
+```
+
+Antes de interpretar los coeficientes, es fundamental evaluar la validez de los instrumentos:
+Test de Instrumentos Débiles: Con un estadístico de 71.61 y un p-valor < 2e-16, rechazamos contundentemente la hipótesis nula de que los instrumentos son débiles. Esto confirma que primary y secondary están fuertemente correlacionados con el uso del cinturón de seguridad, cumpliendo con la condición de relevancia de los instrumentos.
+Test de Sargan: Esta prueba evalúa si los instrumentos están correlacionados con el término de error del modelo, siendo la hipótesis nula que los instrumentos son válidos o exógenos. El p-valor es 0.348, entonces como 0.348 > 0.05, no rechazamos la hipótesis nula, con lo que el test sugiere que nuestros instrumentos cumplen con la condición de exogeneidad, es decir, que las leyes primary y secondary solo afectan las fatalidades a través de su efecto sobre el uso del cinturón.
+Test de Wu-Hausman: Esta prueba compara la consistencia de los estimadores MCO y MC2E, siendo la hipótesis nula de que no hay endogeneidad significativa y que el estimador MCO es consistente. El p-valor es 0.280, por lo que al ser mayor que 0.10, no podemos rechazar la hipótesis nula. Este resultado, aunque sorprendente, sugiere que en esta especificación con efectos fijos de estado, la endogeneidad podría no ser estadísticamente significativa. Sin embargo, dado que el coeficiente cambia de magnitud entre MCO y MC2E, y considerando la plausibilidad teórica de la endogeneidad, es prudente interpretar los resultados de MC2E.
+Interpretación de Coeficientes y Conclusión
+El coeficiente de log(sb_useage) es ahora negativo (-0.079) y marginalmente significativo al 10%, lo cual indica que un aumento del 1% en la tasa de uso del cinturón de seguridad reduce la tasa de fatalidad en aproximadamente 0.08%. Este resultado es consistente con la intuición física y la evidencia empírica sobre el efecto protector del cinturón. La magnitud del coeficiente es más del doble que la estimada por MCO (-0.036), lo que sugiere que efectivamente existía un sesgo de atenuación en la estimación por MCO, posiblemente debido a causalidad inversa donde conductores aumentan el uso del cinturón en respuesta a condiciones más peligrosas.
+Los demás coeficientes mantienen signos y magnitudes similares al modelo MCO: speed70 sigue siendo positivo y altamente significativo (0.104), ba08 y log(income) son negativos y significativos (-0.054 y -0.633 respectivamente), y log(vmtrural) y log(vmturban) mantienen sus signos esperados. El R cuadrado ajustado se mantiene en 88.8%, prácticamente idéntico al modelo MCO.
+```{r}
+modelos <- list(
+  "MCO"   = MCO,
+  "MCO 2E" = MCO2E
+)
+
+cm <- c('(Intercept)'   = 'constante',
+        'log(sb_useage)' = 'log(uso cinturon)',
+        'speed65'        = 'limite 65mph',
+        'speed70'        = 'limite 70+ mph',
+        'drinkage21'     = 'edad minima beber 21',
+        'ba08'           = 'bac <= 0.08',
+        'log(income)'    = 'log(ingreso per capita)',
+        'age'            = 'edad media',
+        'I(age^2)'       = 'edad^2',
+        'log(vmtrural)'  = 'log(vmt rural)',
+        'log(vmturban)'  = 'log(vmt urbano)')
+
+modelsummary(
+  modelos,
+  output = "gt",
+  coef_map = cm,
+  stars = c('*' = .1, '**' = .05, '***' = .01),
+  title = 'tabla 1. estimaciones MCO y MCO 2E para fatalidad vial',
+  gof_omit = 'IC|Log'
+) %>%
+  tab_source_note(
+    source_note = "nota: errores estandar en parentesis. el modelo MCO 2E usa primary y secondary como instrumentos. ambos incluyen efectos fijos por estado."
+  )
+```
+
+Punto 5
+El paper instrumenta el uso del cinturón mediante dummies legislativas asumiendo que cumplen las condiciones estándar de un instrumento válido, o sea la de relevancia (correlación con la variable endógena) y exogeneidad (no correlación con el término de error). Sin embargo, la estrategia enfrenta una tensión fundamental en la condición de exogeneidad que la representación binaria del tratamiento agrava aun mas, ya que los estados no despiertan un día y aprueban enforcement primario de forma aleatoria, debido a que la aprobación de estas leyes es el resultado de procesos políticos endógenos donde confluyen presiones de grupos de interés, campañas de seguridad vial y negociaciones legislativas que pueden extenderse por meses, lo cual implica que el momento y la forma en que se activa la dummy legislativa están correlacionados con variables omitidas no observables que también afectan las fatalidades directamente, como la intensidad de campañas educativas previas, el nivel de sensibilización pública sobre seguridad, o incluso cambios en la composición del enforcement policial que anticipan la ley. La dummy captura entonces no solo el efecto de la legislación, sino todo el entorno político y cultural que la hizo posible, violando la condición de exogeneidad porque ese entorno opera sobre las fatalidades por canales distintos al uso del cinturón
